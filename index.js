@@ -3,7 +3,7 @@ const express = require('express')
 const path = require('path')
 const bodyParser = require('body-parser')
 const chalk = require('chalk')
-const PORT = process.env.PORT || 8080
+const PORT = process.env.PORT || 8000
 const runServer = async () => {
    const app = express()
    app.set('json spaces', 2)
