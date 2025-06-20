@@ -19,7 +19,7 @@ export function generateOpenAPISpec(routersDir = path.join(process.cwd(), 'route
     ],
     paths: {}
   }
-  
+
   function collectRoutes(dir) {
     const entries = fs.readdirSync(dir, { withFileTypes: true })
     for (const entry of entries) {
@@ -27,10 +27,8 @@ export function generateOpenAPISpec(routersDir = path.join(process.cwd(), 'route
       if (entry.isDirectory()) {
         collectRoutes(entryPath)
       } else if (entry.name.endsWith('.js')) {
-        // Dynamic import support for both CJS and ESM
         let routeFile
         try {
-          // Try ESM import if available
           routeFile = require(entryPath)
         } catch {
           // fallback for ESM if run as .mjs or with ESM loader
@@ -50,15 +48,42 @@ export function generateOpenAPISpec(routersDir = path.join(process.cwd(), 'route
           if (!route || !route.path) continue
           const method = (route.method || 'get').toLowerCase()
           if (!openapi.paths[route.path]) openapi.paths[route.path] = {}
-          openapi.paths[route.path][method] = {
-            tags: [route.category || 'default'],
-            summary: route.path,
-            parameters: (route.parameter || []).map(param => ({
+
+          // Handle parameters for GET (query) and POST (requestBody)
+          let parameters = []
+          let requestBody = undefined
+          if (method === 'get') {
+            parameters = (route.parameter || []).map(param => ({
               name: param,
               in: 'query',
               schema: { type: 'string' },
               required: false
-            })),
+            }))
+          } else if (method === 'post') {
+            // Assume parameters are in requestBody as application/json
+            requestBody = {
+              required: true,
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: Object.fromEntries(
+                      (route.parameter || []).map(param => [
+                        param,
+                        { type: 'string' }
+                      ])
+                    )
+                  }
+                }
+              }
+            }
+          }
+
+          openapi.paths[route.path][method] = {
+            tags: [route.category || 'default'],
+            summary: route.path,
+            ...(parameters.length > 0 ? { parameters } : {}),
+            ...(requestBody ? { requestBody } : {}),
             responses: {
               '200': { description: 'OK' }
             }
@@ -67,7 +92,7 @@ export function generateOpenAPISpec(routersDir = path.join(process.cwd(), 'route
       }
     }
   }
-  
+
   collectRoutes(routersDir)
   return openapi
 }
