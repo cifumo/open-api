@@ -6,7 +6,7 @@ import path from 'path'
  * @param {string} routersDir - Path ke folder routers
  * @returns {object} - OpenAPI spec
  */
-export function generateOpenAPISpec(routersDir = path.join(process.cwd(), 'routers')) {
+export async function generateOpenAPISpec(routersDir = path.join(process.cwd(), 'routers')) {
   const openapi = {
     openapi: '3.0.0',
     info: {
@@ -20,12 +20,12 @@ export function generateOpenAPISpec(routersDir = path.join(process.cwd(), 'route
     paths: {}
   }
 
-  function collectRoutes(dir) {
+  async function collectRoutes(dir) {
     const entries = fs.readdirSync(dir, { withFileTypes: true })
     for (const entry of entries) {
       const entryPath = path.join(dir, entry.name)
       if (entry.isDirectory()) {
-        collectRoutes(entryPath)
+        await collectRoutes(entryPath)
       } else if (entry.name.endsWith('.js')) {
         let routeFile
         try {
@@ -93,6 +93,6 @@ export function generateOpenAPISpec(routersDir = path.join(process.cwd(), 'route
     }
   }
 
-  collectRoutes(routersDir)
+  await collectRoutes(routersDir)
   return openapi
 }
