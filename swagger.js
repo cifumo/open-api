@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import { pathToFileURL } from 'url'
 
 /**
  * Generate OpenAPI spec dari semua router/plugin
@@ -29,11 +30,15 @@ export async function generateOpenAPISpec(routersDir = path.join(process.cwd(), 
       } else if (entry.name.endsWith('.js')) {
         let routeFile
         try {
-          routeFile = require(entryPath)
-        } catch {
-          // fallback for ESM if run as .mjs or with ESM loader
-          routeFile = (await import(entryPath)).default
+          // Use pathToFileURL for proper ESM import
+          const routeModule = await import(pathToFileURL(entryPath).href)
+          // Check for named export 'routes' first, then default export
+          routeFile = routeModule.routes || routeModule.default || routeModule
+        } catch (error) {
+          console.warn(`Failed to import ${entryPath}:`, error.message)
+          continue
         }
+        
         let routesArr = []
         if (Array.isArray(routeFile.routes)) {
           routesArr = routeFile.routes
@@ -44,6 +49,7 @@ export async function generateOpenAPISpec(routersDir = path.join(process.cwd(), 
         } else if (routeFile.path) {
           routesArr = [routeFile]
         }
+        
         for (const route of routesArr) {
           if (!route || !route.path) continue
           const method = (route.method || 'get').toLowerCase()
